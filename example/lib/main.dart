@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
+import 'dart:isolate';
 import 'package:psutil_flutter/psutil_flutter.dart';
 
 void main() {
@@ -34,7 +35,7 @@ class _DashboardPageState extends State<DashboardPage> {
   String _availableMemory = '';
   String _netStats = '';
   String _diskUsage = '';
-  List<Process> _processes = [];
+  List<_ProcessInfo> _processes = [];
   Timer? _timer;
 
   @override
@@ -53,37 +54,17 @@ class _DashboardPageState extends State<DashboardPage> {
   }
 
   Future<void> _updateStats() async {
-    final cpu = await Psutil.cpuPercent(interval: const Duration(milliseconds: 100));
-    final vm = Psutil.virtualMemory();
-    final net = Psutil.netIoCounters();
-    final disk = Psutil.diskUsage('/');
-
-    final total = (vm['MemTotal'] ?? 0) / (1024 * 1024 * 1024);
-    final avail = (vm['MemAvailable'] ?? vm['MemFree'] ?? 0) / (1024 * 1024 * 1024);
-    
-    String netInfo = 'N/A';
-    if (net.isNotEmpty) {
-      final first = net.values.first;
-      netInfo = 'Sent: ${(first["bytes_sent"] / (1024 * 1024)).toStringAsFixed(1)} MB / Recv: ${(first["bytes_recv"] / (1024 * 1024)).toStringAsFixed(1)} MB';
-    }
-
-    final pids = Psutil.pids().take(20);
-    final procs = <Process>[];
-    for (final pid in pids) {
-      try {
-        procs.add(Process(pid));
-      } catch (_) {}
-    }
+    final snapshot = await _collectDashboardSnapshot();
 
     if (!mounted) return;
 
     setState(() {
-      _cpuPercent = cpu;
-      _totalMemory = '${total.toStringAsFixed(2)} GB';
-      _availableMemory = '${avail.toStringAsFixed(2)} GB';
-      _netStats = netInfo;
-      _diskUsage = '${disk["percent"].toStringAsFixed(1)}% of ${(disk["total"] / (1024 * 1024 * 1024)).toStringAsFixed(1)} GB';
-      _processes = procs;
+      _cpuPercent = snapshot.cpuPercent;
+      _totalMemory = snapshot.totalMemory;
+      _availableMemory = snapshot.availableMemory;
+      _netStats = snapshot.netStats;
+      _diskUsage = snapshot.diskUsage;
+      _processes = snapshot.processes;
     });
   }
 
@@ -121,9 +102,9 @@ class _DashboardPageState extends State<DashboardPage> {
                 final p = _processes[index];
                 return ListTile(
                   leading: CircleAvatar(child: Text(p.pid.toString(), style: const TextStyle(fontSize: 10))),
-                  title: Text(p.name()),
-                  subtitle: Text(p.status()),
-                  trailing: Text('${(p.memoryInfo()['rss']! / (1024 * 1024)).toStringAsFixed(1)} MB'),
+                  title: Text(p.name),
+                  subtitle: Text(p.status),
+                  trailing: Text(p.rssLabel),
                 );
               },
             ),
@@ -148,4 +129,86 @@ class _DashboardPageState extends State<DashboardPage> {
       ),
     );
   }
+}
+
+Future<_DashboardSnapshot> _collectDashboardSnapshot() {
+  return Isolate.run(() async {
+    final cpu = await Psutil.cpuPercent(
+      interval: const Duration(milliseconds: 100),
+    );
+    final vm = Psutil.virtualMemory();
+    final net = Psutil.netIoCounters();
+    final disk = Psutil.diskUsage('/');
+
+    final total = (vm['MemTotal'] ?? 0) / (1024 * 1024 * 1024);
+    final avail = (vm['MemAvailable'] ?? vm['MemFree'] ?? 0) /
+        (1024 * 1024 * 1024);
+
+    var netInfo = 'N/A';
+    if (net.isNotEmpty) {
+      final first = net.values.first as Map<String, dynamic>;
+      netInfo =
+          'Sent: ${((first['bytes_sent'] as int) / (1024 * 1024)).toStringAsFixed(1)} MB / '
+          'Recv: ${((first['bytes_recv'] as int) / (1024 * 1024)).toStringAsFixed(1)} MB';
+    }
+
+    final processes = <_ProcessInfo>[];
+    for (final pid in Psutil.pids().take(20)) {
+      try {
+        final process = Process(pid);
+        final rss = (process.memoryInfo()['rss']! / (1024 * 1024))
+            .toStringAsFixed(1);
+        processes.add(
+          _ProcessInfo(
+            pid: pid,
+            name: process.name(),
+            status: process.status(),
+            rssLabel: '$rss MB',
+          ),
+        );
+      } catch (_) {}
+    }
+
+    return _DashboardSnapshot(
+      cpuPercent: cpu,
+      totalMemory: '${total.toStringAsFixed(2)} GB',
+      availableMemory: '${avail.toStringAsFixed(2)} GB',
+      netStats: netInfo,
+      diskUsage:
+          '${(disk['percent'] as double).toStringAsFixed(1)}% of ${((disk['total'] as int) / (1024 * 1024 * 1024)).toStringAsFixed(1)} GB',
+      processes: processes,
+    );
+  });
+}
+
+class _DashboardSnapshot {
+  const _DashboardSnapshot({
+    required this.cpuPercent,
+    required this.totalMemory,
+    required this.availableMemory,
+    required this.netStats,
+    required this.diskUsage,
+    required this.processes,
+  });
+
+  final double cpuPercent;
+  final String totalMemory;
+  final String availableMemory;
+  final String netStats;
+  final String diskUsage;
+  final List<_ProcessInfo> processes;
+}
+
+class _ProcessInfo {
+  const _ProcessInfo({
+    required this.pid,
+    required this.name,
+    required this.status,
+    required this.rssLabel,
+  });
+
+  final int pid;
+  final String name;
+  final String status;
+  final String rssLabel;
 }

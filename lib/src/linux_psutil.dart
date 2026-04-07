@@ -1,3 +1,5 @@
+// ignore_for_file: constant_identifier_names, non_constant_identifier_names, unused_field
+
 import 'dart:io';
 import 'dart:ffi';
 import 'package:ffi/ffi.dart';
@@ -215,7 +217,11 @@ class LinuxPsutil implements PsutilPlatform {
       }
       final buf = bufPointer.ref;
       final total = buf.f_blocks * buf.f_frsize;
+<<<<<<< HEAD
       final free = buf.f_bfree * buf.f_frsize;
+=======
+      final free = buf.f_bavail * buf.f_frsize;
+>>>>>>> d0846a3 (main)
       final used = total - free;
       final percent = total > 0 ? (used / total) * 100 : 0.0;
 

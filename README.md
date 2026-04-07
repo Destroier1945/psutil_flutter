@@ -15,16 +15,16 @@ A Flutter plugin for retrieving information on running processes and system util
     - Get process-specific details: Name, Executable path, Status, Memory Info (RSS, VMS), and CPU Times.
     - Measure individual process CPU usage percentage (Async).
 - **Performance Focused**:
-    - Heavy computations like `cpuPercent` are **Asynchronous**, preventing UI thread blocking.
+    - Sampling helpers like `cpuPercent` are asynchronous, but the current Linux implementation still reads `/proc` synchronously.
     - Low-level system access via **Dart FFI** and `/proc` parsing.
 
 ## Supported Platforms
 
 | Platform | Support | Method |
 | --- | --- | --- |
-| **Linux** | ✅ Full | `/proc` & FFI (`libc`) |
-| **Windows** | 🏗️ Initial Structure | Win32 API (Planned) |
-| **macOS** | 🏗️ Initial Structure | IOKit / sysctl (Planned) |
+| **Linux** | ✅ Implemented | `/proc` & FFI (`libc`) |
+| **Windows** | 🏗️ Stub only | Win32 API (Planned) |
+| **macOS** | 🏗️ Stub only | IOKit / sysctl (Planned) |
 
 ## Installation
 

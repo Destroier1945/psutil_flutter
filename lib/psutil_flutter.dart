@@ -27,7 +27,19 @@ class Psutil {
   /// Returns system-wide virtual memory statistics.
   static Map<String, int> virtualMemory() => _impl.virtualMemory();
 
+  static double _systemCpuTotal(Map<String, double> cpuTimes) {
+    return cpuTimes['user']! +
+        cpuTimes['nice']! +
+        cpuTimes['system']! +
+        cpuTimes['idle']! +
+        cpuTimes['iowait']! +
+        cpuTimes['irq']! +
+        cpuTimes['softirq']! +
+        cpuTimes['steal']!;
+  }
+
   /// Returns the CPU usage as a percentage.
+<<<<<<< HEAD
   /// Runs in a background Isolate to avoid blocking the UI thread.
   static Future<double> cpuPercent({
     Duration interval = const Duration(seconds: 1),
@@ -35,6 +47,9 @@ class Psutil {
     // We capture the implementation because the isolate might not have access to static members the same way
     // or we might need to recreate the implementation inside the isolate.
     // For simplicity and correctness with FFI, we sample here, wait, and sample again.
+=======
+  static Future<double> cpuPercent({Duration interval = const Duration(seconds: 1)}) async {
+>>>>>>> d0846a3 (main)
     final t1 = cpuTimes();
     await Future.delayed(interval);
     final t2 = cpuTimes();
@@ -108,15 +123,13 @@ class Process {
     final procTotal1 = t1['user']! + t1['system']!;
     final procTotal2 = t2['user']! + t2['system']!;
 
-    final sysTotal1 = st1.values.reduce((a, b) => a + b);
-    final sysTotal2 = st2.values.reduce((a, b) => a + b);
-
     final procDiff = procTotal2 - procTotal1;
-    final sysDiff = sysTotal2 - sysTotal1;
+    final sysDiff = Psutil._systemCpuTotal(st2) - Psutil._systemCpuTotal(st1);
 
     if (sysDiff <= 0) return 0.0;
-    // Multiplied by number of CPUs in original psutil, but here we just give total process usage vs total system time
-    return (procDiff / sysDiff) * 100.0;
+
+    final usage = (procDiff / sysDiff) * Platform.numberOfProcessors * 100.0;
+    return usage < 0 ? 0.0 : usage;
   }
 
   @override

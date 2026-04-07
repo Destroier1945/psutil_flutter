@@ -14,11 +14,23 @@ import 'package:psutil_flutter/psutil_flutter.dart';
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
+<<<<<<< HEAD
   testWidgets('getPlatformVersion test', (WidgetTester tester) async {
     final Psutil plugin = Psutil();
     final String? version = await plugin.getPlatformVersion();
     // The version string depends on the host platform running the test, so
     // just assert that some non-empty string is returned.
     expect(version?.isNotEmpty, true);
+=======
+  testWidgets('reads process and system data', (WidgetTester tester) async {
+    final pids = Psutil.pids();
+    expect(pids, isNotEmpty);
+
+    final memory = Psutil.virtualMemory();
+    expect(memory.containsKey('MemTotal'), true);
+
+    final process = Process(pids.first);
+    expect(process.name(), isNotEmpty);
+>>>>>>> d0846a3 (main)
   });
 }

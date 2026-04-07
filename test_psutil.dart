@@ -1,3 +1,5 @@
+// ignore_for_file: avoid_print
+
 import 'lib/psutil_flutter.dart';
 import 'dart:io';
 
